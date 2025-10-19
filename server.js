@@ -1,4 +1,3 @@
-// NetSuite Backend API - server.js
 const express = require('express');
 const cors = require('cors');
 const Anthropic = require('@anthropic-ai/sdk');
@@ -33,33 +32,21 @@ app.get('/api/customers/top/:year/:month', async (req, res) => {
       max_tokens: 4000,
       messages: [{
         role: "user",
-        content: `Use ns_runReport tool (report ID 272 - Sales by Customer Summary) for ${startDateStr} to ${endDateStr}.
-
-Extract the top ${limit} customers by sales amount.
-
-Return ONLY a valid JSON array with NO other text before or after:
-[{"name":"Customer Name","sales":123456.78},{"name":"Customer 2","sales":98765.43}]
-
-CRITICAL RULES:
-- Start response with [ 
-- End response with ]
-- No markdown code blocks
-- No explanatory text
-- No newlines between array elements
-- Pure JSON array only`
+        content: `Use ns_runReport tool with report ID 272 for date range ${startDateStr} to ${endDateStr}. Return top ${limit} customers by sales as JSON array: [{"name":"Customer","sales":12345}]`
       }]
     });
     
     let responseText = message.content[0].text.trim();
+    responseText = responseText.replace(/```json/g, '').replace(/```/g, '').trim();
     
-    // Remove markdown code blocks if present
-    responseText = responseText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-    
-    // Extract just the JSON array
     const arrayMatch = responseText.match(/\[[\s\S]*?\]/);
     
     if (!arrayMatch) {
-      throw new Error('No valid JSON array found in response');
+      return res.json({
+        success: false,
+        error: 'Could not parse response',
+        rawResponse: responseText.substring(0, 200)
+      });
     }
     
     const customers = JSON.parse(arrayMatch[0]);
@@ -72,7 +59,6 @@ CRITICAL RULES:
     });
     
   } catch (error) {
-    console.error('Error:', error.message);
     res.status(500).json({
       success: false,
       error: error.message
@@ -85,21 +71,3 @@ app.listen(PORT, () => {
 });
 
 module.exports = app;
-```
-
----
-
-## Deploy the Fix:
-
-1. **Update the file on GitHub:**
-   - Go to your repo: `https://github.com/YOUR_USERNAME/netsuite-api`
-   - Click `server.js`
-   - Click pencil icon (Edit)
-   - Replace all content with the code above
-   - Click "Commit changes"
-
-2. **Vercel will auto-deploy** (takes ~1 minute)
-
-3. **Test again:**
-```
-   https://netsuite-api-abc.vercel.app/api/customers/top/2025/9?limit=5
